@@ -8,10 +8,34 @@ from sklearn.svm import SVC, LinearSVC              # LinearSVC is faster with l
 from sklearn.linear_model import SGDClassifier
 
 
+# for plotting 
+def make_meshgrid(x, y, h=.02):
+    x_min, x_max = x.min() - 1, x.max() + 1
+    y_min, y_max = y.min() - 1, y.max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    return xx, yy
+
+def plot_contours(ax, clf, xx, yy, **params):
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    out = ax.contourf(xx, yy, Z, **params)
+    return out
+
+def plot_decision_svm(X_train, y_train, clf):
+    fig, ax = plt.subplots()
+    X0, X1 = X_train[:, 0], X_train[:, 1]
+    xx, yy = make_meshgrid(X0, X1)
+    
+    plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.8)
+    ax.scatter(X0, X1, c = y_train, cmap = plt.cm.coolwarm, s = 20, edgecolors = 'k')
+    plt.show()
+
+
+# helper function
 def L2_dist(x1, x2):
     return np.sqrt(np.sum(np.square(x1 - x2)))
 
-
+# proxy classes
 class online_svm_qp():
 
     def __init__(self, threshold = None):
@@ -23,13 +47,7 @@ class online_svm_qp():
 
         self.support_vec_ids = None
         self.threshold = threshold
-        
         self.clf = None # for plotting
-
-        # metrics to log 
-        self.min_dist_DB = 1e10
-        self.min_pairwise_dist = 1e10
-
 
     def fit(self, X, y):
         """
@@ -39,8 +57,8 @@ class online_svm_qp():
         """
         self.clf = SVC(kernel = 'linear')
         self.clf.fit(X, y)
-        self.bias = self.clf.intercept_ 
-        self.weights = self.clf.coef_
+        self.bias = self.clf.intercept_[0] 
+        self.weights = self.clf.coef_[0]
         self.support_vec_ids = set(self.clf.support_)
         self.update_candidates(X, y)
         
@@ -52,7 +70,7 @@ class online_svm_qp():
         outputs : distance to hyperplane
         """
         assert (y == -1) or (y == 1) # should not pass 0
-        fx = np.dot(self.weights, x)[0] + self.bias[0]
+        fx = np.dot(self.weights, x) + self.bias 
         return y * (fx) / np.linalg.norm(self.weights)
 
 
@@ -98,9 +116,6 @@ class online_svm_qp():
             if i in self.support_vec_ids: 
                 self.X_retained.append(X[i])
                 self.y_retained.append(y[i])
-
-                # logging min_dist TO TRUTH (only need searching among support vecs)
-                # self.min_dist_DB = min(self.min_dist_DB, CALL TRUE DB DISTANCE FUNCTION)
 
             else:
                 if y[i] == 1:
@@ -165,13 +180,13 @@ class online_svm_qp():
 
             self.fit(self.X_retained, self.y_retained)
 
-
 class online_lssvm():
 
     def __init__(self, rho = 0.001):
         
         self.C = None
         self.rho = rho
+        self.bias = None
         self.weights = None
 
     def fit(self, X, y):
@@ -180,7 +195,8 @@ class online_lssvm():
         X = np.c_[np.ones((X.shape[0], 1)), X] # appending 1s
 
         self.C = X.T @ inv(X @ X.T + self.rho * I(X.shape[0])) @ X # p X p
-        self.weights = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
+        weight_vec = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
+        self.bias, self.weights = weight_vec[0], weight_vec[1:]
     
     def update(self, X, y):
 
@@ -195,11 +211,31 @@ class online_lssvm():
 
         X = np.c_[np.ones((X.shape[0], 1)), X]
         self.C += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p))
-        self.weights += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ (X @ self.weights - y)
+        weight_vec = np.insert(self.weights, 0, self.bias)
+        weight_vec += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ (X @ weight_vec - y)
+        self.bias, self.weights = weight_vec[0], weight_vec[1:]
 
     def predict(self, X):
         
         X = np.c_[np.ones((X.shape[0], 1)), X]
-        return np.where(X @ self.weights >= 0, 1, 0)
+        weight_vec = np.insert(self.weights, 0, self.bias)
+        return np.where(X @ weight_vec >= 0, 1, 0)
 
+class online_svm_sgd(SGDClassifier):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
+    def fit(self, X, y):
+        super().fit(X, y)
+        self.weights = self.coef_[0]
+        self.bias = self.intercept_[0]
+
+    def update(self, X, y):
+
+        if X.ndim == 1:
+            X = np.expand_dims(X, axis = 0)
+            y = np.expand_dims(y, axis = 0)
+
+        super().partial_fit(X, y)
+        self.weights = self.coef_[0]
+        self.bias = self.intercept_[0]
