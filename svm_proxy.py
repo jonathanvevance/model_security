@@ -193,10 +193,15 @@ class online_lssvm():
         self.degree = degree
 
     def fit(self, X, y):
- 
+        
+        if X.ndim == 1:
+            X = np.expand_dims(X, axis = 0)
+            y = np.expand_dims(y, axis = 0)
+
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
 
+        y = y.copy()
         y[y == 0] = -1 # labels must be -1 or 1
         X = np.c_[np.ones((X.shape[0], 1)), X] # appending 1s
 
@@ -207,6 +212,9 @@ class online_lssvm():
         print('size of C is ', self.C.shape)
 
     def update(self, X, y):
+
+        if not isinstance(self.C, np.ndarray):
+            self.fit(X, y)
 
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
@@ -219,6 +227,7 @@ class online_lssvm():
         N = X.shape[0]
         p = self.C.shape[0]
         
+        y = y.copy()
         y[y == 0] = -1 # labels must be -1 or 1
         X = np.c_[np.ones((X.shape[0], 1)), X]
 
@@ -229,6 +238,8 @@ class online_lssvm():
 
     def predict(self, X):
         
+        assert isinstance(self.C, np.ndarray) # check if fit
+
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
 
@@ -236,13 +247,18 @@ class online_lssvm():
         weight_vec = np.insert(self.weights, 0, self.bias)
         return np.where(X @ weight_vec >= 0, 1, 0)
 
-
 class online_svm_sgd(SGDClassifier):
     def __init__(self, degree = None, **kwargs):
-        super().__init__(**kwargs)
+        self.bias = None
+        self.weights = None
         self.degree = degree
+        super().__init__(**kwargs)
 
     def fit(self, X, y):
+        
+        if X.ndim == 1:
+            X = np.expand_dims(X, axis = 0)
+            y = np.expand_dims(y, axis = 0)
 
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
@@ -252,6 +268,9 @@ class online_svm_sgd(SGDClassifier):
         self.bias = self.intercept_[0]
 
     def update(self, X, y):
+        
+        if not isinstance(self.weights, np.ndarray):
+            self.fit(X, y)
 
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
@@ -265,7 +284,9 @@ class online_svm_sgd(SGDClassifier):
         self.bias = self.intercept_[0]
 
     def predict(self, X):
-
+        
+        assert isinstance(self.weights, np.ndarray) # check if fit
+            
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
 
