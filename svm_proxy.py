@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 
 from numpy.linalg import inv
 from numpy import identity as I
+
 from sklearn import datasets
-from sklearn.svm import SVC, LinearSVC              # LinearSVC is faster with large datasets
+from sklearn.svm import SVC
 from sklearn.linear_model import SGDClassifier
+from sklearn.preprocessing import PolynomialFeatures
 
 
-# for plotting 
 def make_meshgrid(x, y, h=.02):
     x_min, x_max = x.min() - 1, x.max() + 1
     y_min, y_max = y.min() - 1, y.max() + 1
@@ -31,11 +32,11 @@ def plot_decision_svm(X_train, y_train, clf):
     plt.show()
 
 
-# helper function
+
 def L2_dist(x1, x2):
     return np.sqrt(np.sum(np.square(x1 - x2)))
 
-# proxy classes
+
 class online_svm_qp():
 
     def __init__(self, threshold = None):
@@ -180,16 +181,21 @@ class online_svm_qp():
 
             self.fit(self.X_retained, self.y_retained)
 
+
 class online_lssvm():
 
-    def __init__(self, rho = 0.001):
+    def __init__(self, rho = 0.001, degree = None):
         
         self.C = None
         self.rho = rho
         self.bias = None
         self.weights = None
+        self.degree = degree
 
     def fit(self, X, y):
+ 
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
 
         y[y == 0] = -1 # labels must be -1 or 1
         X = np.c_[np.ones((X.shape[0], 1)), X] # appending 1s
@@ -198,18 +204,24 @@ class online_lssvm():
         weight_vec = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
         self.bias, self.weights = weight_vec[0], weight_vec[1:]
     
+        print('size of C is ', self.C.shape)
+
     def update(self, X, y):
 
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
 
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
+
         r = self.rho
         N = X.shape[0]
         p = self.C.shape[0]
+        
         y[y == 0] = -1 # labels must be -1 or 1
-
         X = np.c_[np.ones((X.shape[0], 1)), X]
+
         self.C += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p))
         weight_vec = np.insert(self.weights, 0, self.bias)
         weight_vec += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ (X @ weight_vec - y)
@@ -217,15 +229,24 @@ class online_lssvm():
 
     def predict(self, X):
         
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
+
         X = np.c_[np.ones((X.shape[0], 1)), X]
         weight_vec = np.insert(self.weights, 0, self.bias)
         return np.where(X @ weight_vec >= 0, 1, 0)
 
+
 class online_svm_sgd(SGDClassifier):
-    def __init__(self, **kwargs):
+    def __init__(self, degree = None, **kwargs):
         super().__init__(**kwargs)
+        self.degree = degree
 
     def fit(self, X, y):
+
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
+
         super().fit(X, y)
         self.weights = self.coef_[0]
         self.bias = self.intercept_[0]
@@ -236,6 +257,16 @@ class online_svm_sgd(SGDClassifier):
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
 
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
+
         super().partial_fit(X, y)
         self.weights = self.coef_[0]
         self.bias = self.intercept_[0]
+
+    def predict(self, X):
+
+        if isinstance(self.degree, int):
+            X = PolynomialFeatures(self.degree).fit_transform(X)
+
+        return super().predict(X)
