@@ -208,8 +208,6 @@ class online_lssvm():
         self.C = X.T @ inv(X @ X.T + self.rho * I(X.shape[0])) @ X # p X p
         weight_vec = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
         self.bias, self.weights = weight_vec[0], weight_vec[1:]
-    
-        print('size of C is ', self.C.shape)
 
     def update(self, X, y):
 
