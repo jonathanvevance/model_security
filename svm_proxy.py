@@ -211,7 +211,7 @@ class online_lssvm():
         weight_vec = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
         self.bias, self.weights = weight_vec[0], weight_vec[1:]
 
-    def update(self, X, y):
+    def update(self, X, y, alpha = 1.0):
         
         if not isinstance(self.C, np.ndarray):
             self.fit(X, y)
@@ -232,9 +232,10 @@ class online_lssvm():
         y[y == 0] = -1 # labels must be -1 or 1
         X = np.c_[np.ones((X.shape[0], 1)), X]
 
-        self.C += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p))
+        # self.C += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p))
+        self.C += alpha * (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p)) # alpha here (?)
         weight_vec = np.insert(self.weights, 0, self.bias)
-        weight_vec += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ (X @ weight_vec - y)
+        weight_vec += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ (X @ weight_vec - y)    # no alpha here 
         self.bias, self.weights = weight_vec[0], weight_vec[1:]
 
     def predict(self, X):
