@@ -6,6 +6,7 @@ from numpy import identity as I
 
 from sklearn import datasets
 from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
 from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -182,6 +183,7 @@ class online_svm_qp():
             self.fit(self.X_retained, self.y_retained)
 
 
+# Least Squares SVM
 class online_lssvm():
 
     def __init__(self, rho = 0.001, degree = None):
@@ -193,11 +195,11 @@ class online_lssvm():
         self.degree = degree
 
     def fit(self, X, y):
-        
+
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
-
+        
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
 
@@ -210,9 +212,10 @@ class online_lssvm():
         self.bias, self.weights = weight_vec[0], weight_vec[1:]
 
     def update(self, X, y):
-
+        
         if not isinstance(self.C, np.ndarray):
             self.fit(X, y)
+            return
 
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
@@ -245,6 +248,8 @@ class online_lssvm():
         weight_vec = np.insert(self.weights, 0, self.bias)
         return np.where(X @ weight_vec >= 0, 1, 0)
 
+
+# Stochastic Gradient Descent SV
 class online_svm_sgd(SGDClassifier):
     def __init__(self, degree = None, **kwargs):
         self.bias = None
@@ -253,7 +258,7 @@ class online_svm_sgd(SGDClassifier):
         super().__init__(**kwargs)
 
     def fit(self, X, y):
-        
+
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
@@ -269,6 +274,7 @@ class online_svm_sgd(SGDClassifier):
         
         if not isinstance(self.weights, np.ndarray):
             self.fit(X, y)
+            return
 
         if X.ndim == 1:
             X = np.expand_dims(X, axis = 0)
@@ -282,10 +288,12 @@ class online_svm_sgd(SGDClassifier):
         self.bias = self.intercept_[0]
 
     def predict(self, X):
-        
+
         assert isinstance(self.weights, np.ndarray) # check if fit
-            
+
         if isinstance(self.degree, int):
             X = PolynomialFeatures(self.degree).fit_transform(X)
 
         return super().predict(X)
+
+
