@@ -289,11 +289,11 @@ class online_lssvm():
 
 # ## Stochastic Gradient Descent SVM
 class online_svm_sgd(SGDClassifier):
-    def __init__(self, degree = None, **kwargs):
+    def __init__(self, degree = None):
         self.bias = None
         self.weights = None
         self.degree = degree
-        super().__init__(**kwargs)
+        super().__init__(loss = 'hinge')
         
         # buffer
         self.X_fit = None
