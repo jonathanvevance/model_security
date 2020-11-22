@@ -32,7 +32,7 @@ def plot_decision_svm(X_train, y_train, clf):
     plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.8)
     ax.scatter(X0, X1, c = y_train, cmap = plt.cm.coolwarm, s = 20, edgecolors = 'k')
     plt.show()
-
+    
 
 def L2_dist(x1, x2):
     return np.sqrt(np.sum(np.square(x1 - x2)))
@@ -41,14 +41,14 @@ def L2_dist(x1, x2):
 # Quadratic Programming Incremental SVM
 class online_svm_qp():
 
-    def __init__(self, threshold = None, degree = 1):
+    def __init__(self, threshold = None, degree = 1): ##
         
         self.bias = None
         self.weights = None
         self.X_retained = None
         self.y_retained = None
 
-        self.degree = degree 
+        self.degree = degree # 
         self.support_vec_ids = None
         self.threshold = threshold
         self.clf = None # for plotting
@@ -86,6 +86,7 @@ class online_svm_qp():
                 self.X_fit, self.y_fit = None, None
 
         else:
+
             self.clf = SVC(kernel = 'linear')
             self.clf.fit(X, y)
             self.bias = self.clf.intercept_[0] 
@@ -128,16 +129,6 @@ class online_svm_qp():
         # centoids to hyperplane distances
         R0_pos = self.distance_DB(pos_centroid, 1)
         R0_neg = self.distance_DB(neg_centroid, -1)
-
-        # logging min_pairwise_dist (only searching among svecs)
-        svec_ids_array = np.array(list(self.support_vec_ids))
-        X_svecs_pos = X[svec_ids_array, :][y[svec_ids_array] == 1]
-        X_svecs_neg = X[svec_ids_array, :][y[svec_ids_array] == 0]
-
-        self.min_pairwise_dist = 1e5
-        for x_pos in X_svecs_pos:
-            for x_neg in X_svecs_neg:
-                self.min_pairwise_dist = min(self.min_pairwise_dist, L2_dist(x_pos, x_neg))
 
         # selecting CSVs
         self.X_retained = []
@@ -236,7 +227,7 @@ class online_svm_qp():
 # Least Squares Incremental SVM
 class online_lssvm():
 
-    def __init__(self, rho = 0.001, degree = None):
+    def __init__(self, rho = 0.001, degree = 1):
         
         self.C = None
         self.rho = rho
@@ -250,12 +241,9 @@ class online_lssvm():
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
         
-        if isinstance(self.degree, int):
-            X = PolynomialFeatures(self.degree).fit_transform(X)
-
         y = y.copy()
         y[y == 0] = -1 # labels must be -1 or 1
-        X = np.c_[np.ones((X.shape[0], 1)), X] # appending 1s
+        X = PolynomialFeatures(self.degree).fit_transform(X)
 
         self.C = X.T @ inv(X @ X.T + self.rho * I(X.shape[0])) @ X # p X p
         weight_vec = (inv(X.T @ X + self.rho * I(X.shape[1])) @ X.T) @ y 
@@ -271,16 +259,13 @@ class online_lssvm():
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
 
-        if isinstance(self.degree, int):
-            X = PolynomialFeatures(self.degree).fit_transform(X)
-
         r = self.rho
         N = X.shape[0]
         p = self.C.shape[0]
         
         y = y.copy()
         y[y == 0] = -1 # labels must be -1 or 1
-        X = np.c_[np.ones((X.shape[0], 1)), X]
+        X = PolynomialFeatures(self.degree).fit_transform(X)
 
         self.C += (self.C - I(p)) @ X.T @ inv(r * I(N) - X @ (self.C - I(p)) @ X.T) @ X @ (self.C - I(p))
         weight_vec = np.insert(self.weights, 0, self.bias)
@@ -289,22 +274,19 @@ class online_lssvm():
 
     def predict(self, X):
         
-        if isinstance(self.degree, int):
-            X = PolynomialFeatures(self.degree).fit_transform(X)
-
-        X = np.c_[np.ones((X.shape[0], 1)), X]
+        X = PolynomialFeatures(self.degree).fit_transform(X)
         weight_vec = np.insert(self.weights, 0, self.bias)
         return np.where(X @ weight_vec >= 0, 1, 0)
 
 
-# ## Stochastic Gradient Descent SVM
+# Stochastic Gradient Descent SVM
 class online_svm_sgd(SGDClassifier):
-    def __init__(self, degree = None):
+    def __init__(self, degree = 1):
         self.bias = None
         self.weights = None
         self.degree = degree
         super().__init__(loss = 'hinge')
-        
+
         # buffer
         self.X_fit = None
         self.y_fit = np.array([])
@@ -320,16 +302,18 @@ class online_svm_sgd(SGDClassifier):
             self.y_fit = np.append(self.y_fit, y)
 
             if (1 in self.y_fit) & (0 in self.y_fit):
-                if isinstance(self.degree, int):
-                    X = PolynomialFeatures(self.degree).fit_transform(X)
+                
+                pf = PolynomialFeatures(self.degree, include_bias = False)
+                self.X_fit = pf.fit_transform(self.X_fit) 
 
                 super().fit(self.X_fit, self.y_fit)
                 self.weights = self.coef_[0]
                 self.bias = self.intercept_[0]
 
         else:
-            if isinstance(self.degree, int):
-                X = PolynomialFeatures(self.degree).fit_transform(X)
+            
+            pf = PolynomialFeatures(self.degree, include_bias = False)
+            X = pf.fit_transform(X)
 
             super().fit(X, y)
             self.weights = self.coef_[0]
@@ -345,8 +329,8 @@ class online_svm_sgd(SGDClassifier):
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
 
-        if isinstance(self.degree, int):
-            X = PolynomialFeatures(self.degree).fit_transform(X)
+        pf = PolynomialFeatures(self.degree, include_bias = False)
+        X = pf.fit_transform(X)
 
         super().partial_fit(X, y)
         self.weights = self.coef_[0]
@@ -358,7 +342,6 @@ class online_svm_sgd(SGDClassifier):
             return np.array([random.choice([0, 1]) for __ in range(len(X))])
 
         else:
-            if isinstance(self.degree, int):
-                X = PolynomialFeatures(self.degree).fit_transform(X)
-
+            pf = PolynomialFeatures(self.degree, include_bias = False)
+            X = pf.fit_transform(X)
             return super().predict(X)
