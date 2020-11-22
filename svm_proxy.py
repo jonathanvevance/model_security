@@ -41,13 +41,14 @@ def L2_dist(x1, x2):
 # Quadratic Programming Incremental SVM
 class online_svm_qp():
 
-    def __init__(self, threshold = None):
+    def __init__(self, threshold = None, degree = 1):
         
         self.bias = None
         self.weights = None
         self.X_retained = None
         self.y_retained = None
 
+        self.degree = degree 
         self.support_vec_ids = None
         self.threshold = threshold
         self.clf = None # for plotting
@@ -74,6 +75,9 @@ class online_svm_qp():
             if (1 in self.y_fit) & (0 in self.y_fit):
 
                 self.clf = SVC(kernel = 'linear')
+                pf = PolynomialFeatures(self.degree, include_bias = False)
+                self.X_fit = pf.fit_transform(self.X_fit)
+
                 self.clf.fit(self.X_fit, self.y_fit)
                 self.bias = self.clf.intercept_[0] 
                 self.weights = self.clf.coef_[0]
@@ -97,7 +101,7 @@ class online_svm_qp():
         outputs : distance to hyperplane
         """
         assert (y == -1) or (y == 1) # should not pass 0
-        fx = np.dot(self.weights, x) + self.bias 
+        fx = np.dot(self.weights, x) + self.bias
         return y * (fx) / np.linalg.norm(self.weights)
 
 
@@ -189,6 +193,9 @@ class online_svm_qp():
             X = np.expand_dims(X, axis = 0)
             y = np.expand_dims(y, axis = 0)
 
+        pf = PolynomialFeatures(self.degree, include_bias = False)
+        X = pf.fit_transform(X)
+
         X_violations = []
         y_violations = []
         for i in range(X.shape[0]):
@@ -217,6 +224,9 @@ class online_svm_qp():
         if isinstance(self.weights, np.ndarray):
             if X.ndim == 1:
                 X = np.expand_dims(X, axis = 0)
+            
+            pf = PolynomialFeatures(self.degree, include_bias = False)
+            X = pf.fit_transform(X)
             return self.clf.predict(X)
 
         else:
