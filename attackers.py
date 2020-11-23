@@ -3,12 +3,15 @@ import numpy as np
 
 class naive_attacker:
     
-    def __init__(self, target, clf, x1_range = (0, 20), x2_range = (-5, 15)):
+    def __init__(self, X, target, clf):
         
-        self.x1_range, self.x2_range = x1_range, x2_range
+        self.range = []
         self.target = target # true clf
         self.started = False
         self.clf = clf
+
+        for i in range(X.shape[1]):
+            self.range.append((X[:, i].min(), X[:, i].max()))
 
         # store queries
         self.X = None
@@ -16,9 +19,10 @@ class naive_attacker:
 
     def query_fit(self):
         
-        x1 = random.randint(self.x1_range[0], self.x1_range[1])
-        x2 = random.randint(self.x2_range[0], self.x2_range[1])
-        x = np.array([x1, x2])
+        x = []
+        for min_Xi, max_Xi in self.range:
+            x.append(random.uniform(min_Xi, max_Xi))
+        x = np.array(x)
 
         if self.Y == []:
             self.X = np.expand_dims(x, axis = 0)
