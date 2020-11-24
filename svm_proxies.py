@@ -22,7 +22,7 @@ def plot_contours(ax, clf, xx, yy, **params):
     out = ax.contourf(xx, yy, Z, **params)
     return out
 
-def plot_decision_svm(X_train, y_train, clf):
+def plot_decision_boundary(X_train, y_train, clf):
     fig, ax = plt.subplots()
     X0, X1 = X_train[:, 0], X_train[:, 1]
     xx, yy = make_meshgrid(X0, X1)
