@@ -59,6 +59,7 @@ class naive_attacker:
             return self.clf.predict(X)
         else:
             return np.array([random.choice([0, 1]) for __ in range(len(X))])
+
 class LordMeek(OnlineBase):
     def __init__(self, target, test_xy, error=None, delta=None):
         self.X_test, self.y_test = test_xy

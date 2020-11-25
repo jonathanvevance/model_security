@@ -9,7 +9,7 @@ import sys
 import os
 
 import matplotlib as mpl
-mpl.use('Agg')
+# mpl.use('Agg')
 from collections import deque
 
 
