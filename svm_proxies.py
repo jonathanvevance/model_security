@@ -273,8 +273,6 @@ class online_svm_qp():
     def reduce_retained(self, max_size = 100):
 
         if len(self.X_perm) >= max_size:
-
-            print('X_perm only required')
             
             distances = []
             for i in range(len(self.X_per)):
@@ -285,11 +283,6 @@ class online_svm_qp():
             self.y_retained = []
 
         else:
-            
-            print('both')
-            print(max_size)
-            print(self.X_retained)
-            print(len(self.X_perm))
 
             distances = []
             max_size = int(max_size - len(self.X_perm))
@@ -298,16 +291,8 @@ class online_svm_qp():
                 distances.append(self.true_distance_DB(self.X_retained[i, :]))
 
             selected_idx = np.argsort(distances)[: max_size]
-            try:
-                self.X_retained = self.X_retained[selected_idx]
-                self.y_retained = self.y_retained[selected_idx]
-
-            except:
-                # print(max_size)
-                # print(self.X_retained)
-                # print(len(self.X_perm))
-
-                print('in except')
+            self.X_retained = self.X_retained[selected_idx]
+            self.y_retained = self.y_retained[selected_idx]
 
 
     def predict(self, X):
