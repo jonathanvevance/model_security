@@ -250,7 +250,19 @@ class online_svm_qp():
                 self.X_retained = np.vstack((self.X_retained, X_violations))
                 self.y_retained = np.append(self.y_retained, y_violations)
 
-            self.fit(self.X_retained, self.y_retained)
+                self.fit(self.X_retained, self.y_retained)
+            
+            elif self.X_retained.shape[0] > 0:
+                self.fit(self.X_retained, self.y_retained)
+
+            else:
+                self.clf = SVC(kernel = 'linear')
+                self.clf.fit(self.X_perm, self.y_perm)
+
+                self.bias = self.clf.intercept_[0] 
+                self.weights = self.clf.coef_[0]
+                self.support_vec_ids = set(self.clf.support_)
+                
 
     def predict(self, X):
 
