@@ -39,11 +39,12 @@ def L2_dist(x1, x2):
 # Quadratic Programming Incremental SVM
 class online_svm_qp():
 
-    def __init__(self, true_clf, threshold = None, dist_DB = 3.0, degree = 1): 
+    def __init__(self, true_clf, threshold = None, dist_DB = 1.0, degree = 1): 
         
         self.bias = None
         self.weights = None
-        self.X_retained = None
+        # self.X_retained = None
+        self.X_retained = []  ## checking
         self.y_retained = None
 
         if hasattr(true_clf, "coef_"):
@@ -247,8 +248,13 @@ class online_svm_qp():
 
         else:
             if X_violations != []:
-                self.X_retained = np.vstack((self.X_retained, X_violations))
-                self.y_retained = np.append(self.y_retained, y_violations)
+
+                if len(self.X_retained) == 0:
+                    self.X_retained = np.array(X_violations)
+                    self.y_retained = np.array(y_violations)
+                else:
+                    self.X_retained = np.vstack((self.X_retained, X_violations))
+                    self.y_retained = np.append(self.y_retained, y_violations)
 
                 self.fit(self.X_retained, self.y_retained)
             
@@ -262,7 +268,47 @@ class online_svm_qp():
                 self.bias = self.clf.intercept_[0] 
                 self.weights = self.clf.coef_[0]
                 self.support_vec_ids = set(self.clf.support_)
-                
+
+
+    def reduce_retained(self, max_size = 100):
+
+        if len(self.X_perm) >= max_size:
+
+            print('X_perm only required')
+            
+            distances = []
+            for i in range(len(self.X_per)):
+                distances.append(self.true_distance_DB(self.X_perm[i, :]))
+
+            self.X_perm = self.X_perm[np.argsort(distances)[: max_size]]
+            self.X_retained = []
+            self.y_retained = []
+
+        else:
+            
+            print('both')
+            print(max_size)
+            print(self.X_retained)
+            print(len(self.X_perm))
+
+            distances = []
+            max_size = int(max_size - len(self.X_perm))
+
+            for i in range(len(self.X_retained)):
+                distances.append(self.true_distance_DB(self.X_retained[i, :]))
+
+            selected_idx = np.argsort(distances)[: max_size]
+            try:
+                self.X_retained = self.X_retained[selected_idx]
+                self.y_retained = self.y_retained[selected_idx]
+
+            except:
+                # print(max_size)
+                # print(self.X_retained)
+                # print(len(self.X_perm))
+
+                print('in except')
+
 
     def predict(self, X):
 
