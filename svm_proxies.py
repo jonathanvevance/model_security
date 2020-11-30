@@ -83,7 +83,7 @@ class online_svm_qp():
 
             self.y_fit = np.append(self.y_fit, y)
             
-            if (1 in self.y_fit) & (0 in self.y_fit):
+            if (1 in self.y_fit) & (0 in self.y_fit): # 0 < sum < length might be faster 
 
                 self.clf = SVC(kernel = 'linear')
                 pf = PolynomialFeatures(self.degree, include_bias = False)
@@ -272,13 +272,25 @@ class online_svm_qp():
 
     def reduce_retained(self, max_size = 100):
 
+        assert max_size > 2
+
         if len(self.X_perm) >= max_size:
             
             distances = []
             for i in range(len(self.X_per)):
                 distances.append(self.true_distance_DB(self.X_perm[i, :]))
 
-            self.X_perm = self.X_perm[np.argsort(distances)[: max_size]]
+            selected_idx = np.argsort(distances)[: max_size]
+
+            for i in selected_idx[1:]:
+                if self.y_perm[i] == 1 - self.y_perm[0]:
+                    temp = selected_idx[i]
+                    selected_idx[i] = selected_idx[1]
+                    selected_idx[1] = temp
+                    break
+        
+            self.X_perm = self.X_perm[selected_idx]
+            self.y_perm = self.y_perm[selected_idx]
             self.X_retained = []
             self.y_retained = []
 
@@ -291,6 +303,14 @@ class online_svm_qp():
                 distances.append(self.true_distance_DB(self.X_retained[i, :]))
 
             selected_idx = np.argsort(distances)[: max_size]
+            
+            for i in selected_idx[1:]:
+                if self.y_retained[i] == 1 - self.y_retained[0]:
+                    temp = selected_idx[i]
+                    selected_idx[i] = selected_idx[1]
+                    selected_idx[1] = temp
+                    break
+
             self.X_retained = self.X_retained[selected_idx]
             self.y_retained = self.y_retained[selected_idx]
 
