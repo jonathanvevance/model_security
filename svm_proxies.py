@@ -280,7 +280,7 @@ class online_svm_qp():
             for i in range(len(self.X_per)):
                 distances.append(self.true_distance_DB(self.X_perm[i, :]))
 
-            selected_idx = np.argsort(distances)[: max_size]
+            selected_idx = np.argsort(distances)
 
             for i in selected_idx[1:]:
                 if self.y_perm[i] == 1 - self.y_perm[0]:
@@ -289,8 +289,8 @@ class online_svm_qp():
                     selected_idx[1] = temp
                     break
         
-            self.X_perm = self.X_perm[selected_idx]
-            self.y_perm = self.y_perm[selected_idx]
+            self.X_perm = self.X_perm[selected_idx[: max_size]]
+            self.y_perm = self.y_perm[selected_idx[: max_size]]
             self.X_retained = []
             self.y_retained = []
 
@@ -302,7 +302,7 @@ class online_svm_qp():
             for i in range(len(self.X_retained)):
                 distances.append(self.true_distance_DB(self.X_retained[i, :]))
 
-            selected_idx = np.argsort(distances)[: max_size]
+            selected_idx = np.argsort(distances)
             
             for i in selected_idx[1:]:
                 if self.y_retained[i] == 1 - self.y_retained[0]:
@@ -311,8 +311,8 @@ class online_svm_qp():
                     selected_idx[1] = temp
                     break
 
-            self.X_retained = self.X_retained[selected_idx]
-            self.y_retained = self.y_retained[selected_idx]
+            self.X_retained = self.X_retained[selected_idx[: max_size]]
+            self.y_retained = self.y_retained[selected_idx[: max_size]]
 
 
     def predict(self, X):
