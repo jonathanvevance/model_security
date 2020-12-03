@@ -39,13 +39,22 @@ def L2_dist(x1, x2):
 # Quadratic Programming Incremental SVM
 class online_svm_qp():
 
-    def __init__(self, threshold = None, degree = 1): ##
+    def __init__(self, true_clf, threshold = None, dist_DB = 1.0, degree = 1): 
         
         self.bias = None
         self.weights = None
-        self.X_retained = None
+        # self.X_retained = None
+        self.X_retained = []  ## checking
         self.y_retained = None
 
+        if hasattr(true_clf, "coef_"):
+            self.true_weights = true_clf.coef_[0] 
+            self.true_bias   = true_clf.intercept_[0]
+        else:
+            self.true_weights = None
+            self.true_bias   = None
+
+        self.dist_DB = dist_DB
         self.degree = degree # 
         self.support_vec_ids = None
         self.threshold = threshold
@@ -54,6 +63,10 @@ class online_svm_qp():
         # buffer
         self.X_fit = None
         self.y_fit = np.array([])
+
+        # new additions
+        self.X_perm = []
+        self.y_perm = []
 
     def fit(self, X, y):
         """
@@ -70,7 +83,7 @@ class online_svm_qp():
 
             self.y_fit = np.append(self.y_fit, y)
             
-            if (1 in self.y_fit) & (0 in self.y_fit):
+            if (1 in self.y_fit) & (0 in self.y_fit): # 0 < sum < length might be faster 
 
                 self.clf = SVC(kernel = 'linear')
                 pf = PolynomialFeatures(self.degree, include_bias = False)
@@ -83,10 +96,14 @@ class online_svm_qp():
                 self.update_candidates(self.X_fit, self.y_fit)
                 self.X_fit, self.y_fit = None, None
 
-        else:
+        else:            
 
             self.clf = SVC(kernel = 'linear')
-            self.clf.fit(X, y)
+            if self.X_perm != []:
+                self.clf.fit(np.vstack((X, np.array(self.X_perm))), np.append(y, self.y_perm))
+            else:
+                self.clf.fit(X, y)
+
             self.bias = self.clf.intercept_[0] 
             self.weights = self.clf.coef_[0]
             self.support_vec_ids = set(self.clf.support_)
@@ -103,6 +120,17 @@ class online_svm_qp():
         fx = np.dot(self.weights, x) + self.bias
         return y * (fx) / np.linalg.norm(self.weights)
 
+    
+    def true_distance_DB(self, x):
+        """
+        inputs  : x (numpy vector)
+        outputs : distance to true hyperplane
+        """
+        if isinstance(self.true_weights, np.ndarray):
+            fx = abs(np.dot(self.true_weights, x) + self.true_bias)
+            return fx / np.linalg.norm(self.true_weights)
+        else:
+            return np.inf
 
     def update_candidates(self, X, y):
         """
@@ -117,9 +145,13 @@ class online_svm_qp():
         # distance to closest svec
         R_pos = R_neg = 1e10
         for i in self.support_vec_ids: 
-            
-            pos_dist = L2_dist(pos_centroid, X[i])
-            neg_dist = L2_dist(neg_centroid, X[i])
+
+            if i < X.shape[0]:
+                pos_dist = L2_dist(pos_centroid, X[i])
+                neg_dist = L2_dist(neg_centroid, X[i])
+            else:
+                pos_dist = L2_dist(pos_centroid, self.X_perm[i - X.shape[0]])
+                neg_dist = L2_dist(neg_centroid, self.X_perm[i - X.shape[0]])
 
             R_pos = min(pos_dist, R_pos)
             R_neg = min(neg_dist, R_neg)
@@ -133,7 +165,11 @@ class online_svm_qp():
         self.y_retained = []
         for i in range(X.shape[0]):
 
-            if i in self.support_vec_ids: 
+            if (self.true_distance_DB(X[i]) <= self.dist_DB):
+                self.X_perm.append(X[i])
+                self.y_perm.append(y[i])
+
+            elif i in self.support_vec_ids:
                 self.X_retained.append(X[i])
                 self.y_retained.append(y[i])
 
@@ -185,28 +221,99 @@ class online_svm_qp():
         pf = PolynomialFeatures(self.degree, include_bias = False)
         X = pf.fit_transform(X)
 
+        fit_flag = False
         X_violations = []
         y_violations = []
         for i in range(X.shape[0]):
-            if y[i] == 1:
+
+            if (self.true_distance_DB(X[i]) <= self.dist_DB):
+                fit_flag = True
+                self.X_perm.append(X[i])
+                self.y_perm.append(y[i])
+
+            elif y[i] == 1:
                 if (self.distance_DB(X[i], 1) < 1 - tol):
+                    fit_flag = True
                     X_violations.append(X[i])
                     y_violations.append(y[i])
 
             else:
                 if (self.distance_DB(X[i], -1) < 1 - tol):
+                    fit_flag = True
                     X_violations.append(X[i])
                     y_violations.append(y[i])
 
-        if X_violations == []:
+        if fit_flag == False:
             return 
 
         else:
+            if X_violations != []:
 
-            self.X_retained = np.vstack((self.X_retained, X_violations))
-            self.y_retained = np.append(self.y_retained, y_violations)
+                if len(self.X_retained) == 0:
+                    self.X_retained = np.array(X_violations)
+                    self.y_retained = np.array(y_violations)
+                else:
+                    self.X_retained = np.vstack((self.X_retained, X_violations))
+                    self.y_retained = np.append(self.y_retained, y_violations)
 
-            self.fit(self.X_retained, self.y_retained)
+                self.fit(self.X_retained, self.y_retained)
+            
+            elif self.X_retained.shape[0] > 0:
+                self.fit(self.X_retained, self.y_retained)
+
+            else:
+                self.clf = SVC(kernel = 'linear')
+                self.clf.fit(self.X_perm, self.y_perm)
+
+                self.bias = self.clf.intercept_[0] 
+                self.weights = self.clf.coef_[0]
+                self.support_vec_ids = set(self.clf.support_)
+
+
+    def reduce_retained(self, max_size = 100):
+
+        assert max_size > 2
+
+        if len(self.X_perm) >= max_size:
+            
+            distances = []
+            for i in range(len(self.X_per)):
+                distances.append(self.true_distance_DB(self.X_perm[i, :]))
+
+            selected_idx = np.argsort(distances)
+
+            for i in selected_idx[1:]:
+                if self.y_perm[i] == 1 - self.y_perm[0]:
+                    temp = selected_idx[i]
+                    selected_idx[i] = selected_idx[1]
+                    selected_idx[1] = temp
+                    break
+        
+            self.X_perm = self.X_perm[selected_idx[: max_size]]
+            self.y_perm = self.y_perm[selected_idx[: max_size]]
+            self.X_retained = []
+            self.y_retained = []
+
+        else:
+
+            distances = []
+            max_size = int(max_size - len(self.X_perm))
+
+            for i in range(len(self.X_retained)):
+                distances.append(self.true_distance_DB(self.X_retained[i, :]))
+
+            selected_idx = np.argsort(distances)
+            
+            for i in selected_idx[1:]:
+                if self.y_retained[i] == 1 - self.y_retained[0]:
+                    temp = selected_idx[i]
+                    selected_idx[i] = selected_idx[1]
+                    selected_idx[1] = temp
+                    break
+
+            self.X_retained = self.X_retained[selected_idx[: max_size]]
+            self.y_retained = self.y_retained[selected_idx[: max_size]]
+
 
     def predict(self, X):
 
