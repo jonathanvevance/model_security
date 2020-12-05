@@ -43,8 +43,7 @@ class online_svm_qp():
         
         self.bias = None
         self.weights = None
-        # self.X_retained = None
-        self.X_retained = []  ## checking
+        self.X_retained = []
         self.y_retained = None
 
         if hasattr(true_clf, "coef_"):
@@ -278,7 +277,7 @@ class online_svm_qp():
             
             distances = []
             for i in range(len(self.X_perm)):
-                distances.append(self.true_distance_DB(self.X_perm[i])) ##
+                distances.append(self.true_distance_DB(self.X_perm[i]))
 
             selected_idx = np.argsort(distances)
 
