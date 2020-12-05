@@ -258,7 +258,7 @@ class online_svm_qp():
 
                 self.fit(self.X_retained, self.y_retained)
             
-            elif self.X_retained.shape[0] > 0:
+            elif len(self.X_retained) > 0:
                 self.fit(self.X_retained, self.y_retained)
 
             else:
@@ -277,8 +277,8 @@ class online_svm_qp():
         if len(self.X_perm) >= max_size:
             
             distances = []
-            for i in range(len(self.X_per)):
-                distances.append(self.true_distance_DB(self.X_perm[i, :]))
+            for i in range(len(self.X_perm)):
+                distances.append(self.true_distance_DB(self.X_perm[i])) ##
 
             selected_idx = np.argsort(distances)
 
@@ -289,8 +289,8 @@ class online_svm_qp():
                     selected_idx[1] = temp
                     break
         
-            self.X_perm = self.X_perm[selected_idx[: max_size]]
-            self.y_perm = self.y_perm[selected_idx[: max_size]]
+            self.X_perm = list(np.array(self.X_perm)[selected_idx[: max_size]])
+            self.y_perm = list(np.array(self.y_perm)[selected_idx[: max_size]])
             self.X_retained = []
             self.y_retained = []
 

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 from algorithms.OnlineBase import OnlineBase
 
-class naive_attacker:
+class informed_attacker:
     
     def __init__(self, X, target, clf):
         
