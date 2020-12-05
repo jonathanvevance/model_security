@@ -60,15 +60,20 @@ class informed_attacker:
         else:
             return np.array([random.choice([0, 1]) for __ in range(len(X))])
 
+
 class benign_user:
     
-    def __init__(self, X, target, clf, range = 400):
+    def __init__(self, X, target, clf, width = 3.0):
         
-        self.max = range / 2
-        self.n_features = X.shape[1]
+        self.range = []
         self.target = target # true clf
         self.started = False
         self.clf = clf
+
+        for i in range(X.shape[1]):
+            mid = 0.5 * (X[:, i].max() + X[:, i].min())
+            feature_width = (width/2) * (X[:, i].max() - X[:, i].min())
+            self.range.append((mid - feature_width, mid + feature_width))
 
         # store queries
         self.X = None
@@ -77,8 +82,8 @@ class benign_user:
     def query_fit(self):
         
         x = []
-        for __ in range(self.n_features):
-            x.append(random.uniform(-self.max, self.max))
+        for min_Xi, max_Xi in self.range:
+            x.append(random.uniform(min_Xi, max_Xi))
         x = np.array(x)
 
         if self.Y == []:
