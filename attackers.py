@@ -8,10 +8,6 @@ import numpy as np
 from sklearn import svm
 from sklearn.datasets import load_svmlight_file
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-from algorithms.OnlineBase import OnlineBase
-
 class informed_attacker:
     
     def __init__(self, X, target, clf):
